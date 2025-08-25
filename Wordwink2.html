@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Oxford-Style Quiz</title>
+  <style>
+    body {
+      font-family: "Garamond", "Georgia", serif;
+      background: #f9f6f1; /* off-white parchment */
+      color: #2c2c2c;
+      margin: 0;
+      padding: 40px;
+      line-height: 1.6;
+    }
+
+    .card {
+      max-width: 600px;
+      margin: auto;
+      padding: 30px;
+      border: 1px solid #d4cfc4;
+      border-radius: 4px;
+      background: #fffdfa;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+      transition: transform 0.6s ease, opacity 0.6s ease;
+    }
+
+    /* Animation classes */
+    .fade-out {
+      opacity: 0;
+      transform: translateX(-30px);
+    }
+    .fade-in {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .q {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      margin: 8px 0;
+      padding: 12px;
+      font-size: 16px;
+      text-align: left;
+      border: 1px solid #c2b9a6;
+      border-radius: 3px;
+      background: #fcfaf6;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .btn:hover { background: #f2ede3; }
+    .btn.correct { background: #e6f2e6; border-color: #4d7c50; }
+    .btn.wrong   { background: #f8e6e6; border-color: #a33; }
+
+    .meta { font-size: 14px; color: #5a5145; margin-top: 12px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="card" id="quiz">
+    <div id="counter" class="meta"></div>
+    <h2 class="q" id="question">Loading…</h2>
+    <div id="options"></div>
+    <div id="feedback" class="meta"></div>
+    <button id="next" disabled>Next</button>
+  </div>
+
+  <div class="card hidden" id="end">
+    <h2>Quiz Complete</h2>
+    <p id="final"></p>
+    <button id="restart">Start Again</button>
+  </div>
+
+<script>
+  // ====== QUESTIONS ======
+  const QUESTIONS = [
+    { q: "Crepuscular?", options: ["From the German for pancake","from the Newcastle slang for fabric","from the Latin crepusculum meaning twilight","its not a real word"], answerIndex: 2 },
+
+  { q: "Where does the word 'Quarantine' come from?", options: ["Old English 'quarne' for sickness","French 'quarante jours' meaning forty days","Latin 'quarantum' meaning plague","Greek 'karanthe' for disease"], answerIndex: 1 },
+
+  { q: "What is the origin of the word 'Alcohol'?", options: ["Arabic al-kuḥl meaning fine powder or essence","Latin alcolem meaning spirit","Greek alkhos for pain","Persian al-koh meaning firewater"], answerIndex: 0 },
+
+  { q: "Where does the word 'Robot' come from?", options: ["Russian 'robota' meaning machine","Czech 'robota' meaning forced labour","German 'roboter' meaning servant","Latin 'robus' meaning strong"], answerIndex: 1 },
+
+  { q: "The word 'Trivia' originally referred to what?", options: ["The three roads where people met in Latin (trivium)","Old English for gossip","Greek for useless knowledge","French word for games"], answerIndex: 0 },
+
+  { q: "What is the etymology of 'Nightmare'?", options: ["From Old English 'mare', a goblin that suffocates sleepers","From German 'nacht' and 'maer' meaning dream","From Latin 'noctis mare' meaning sea of night","From Norse 'njotmara' meaning spirit"], answerIndex: 0 },
+
+  { q: "The word 'Pandemonium' was coined by?", options: ["John Milton in Paradise Lost, meaning the capital of Hell","Shakespeare in Macbeth","Dante in Inferno","From Latin 'pandem' meaning chaos"], answerIndex: 0 },
+
+  { q: "What is the origin of 'Salary'?", options: ["From Latin 'salarium' — money for buying salt","From Greek 'salos' meaning balance","From French 'salaire' for payment","From Arabic 'salar' meaning trade"], answerIndex: 0 },
+
+  { q: "Where does 'Hazard' come from?", options: ["Arabic al-zar meaning dice","Latin hasardus meaning danger","Old English haesard for risk","Greek hazara meaning chance"], answerIndex: 0 },
+
+  { q: "The word 'Clue' originally meant?", options: ["A ball of thread (clew) to guide through a labyrinth","A Latin term for evidence","Greek word for key","Old French 'clouer' meaning to nail"], answerIndex: 0 },
+
+  ];
+
+  // ====== QUIZ LOGIC ======
+  let order = shuffle([...QUESTIONS.keys()]);
+  let index = 0, score = 0, locked = false;
+
+  const els = {
+    counter: document.getElementById('counter'),
+    question: document.getElementById('question'),
+    options: document.getElementById('options'),
+    feedback: document.getElementById('feedback'),
+    next: document.getElementById('next'),
+    final: document.getElementById('final'),
+    quiz: document.getElementById('quiz'),
+    end: document.getElementById('end'),
+    restart: document.getElementById('restart')
+  };
+
+  render();
+
+  els.next.addEventListener('click', () => {
+    if (index < order.length - 1) {
+      animateOut(() => { index++; render(); animateIn(); });
+    } else {
+      showEnd();
+    }
+  });
+
+  els.restart.addEventListener('click', () => {
+    order = shuffle([...QUESTIONS.keys()]);
+    index = 0; score = 0; locked = false;
+    els.end.classList.add('hidden');
+    els.quiz.classList.remove('hidden');
+    render();
+  });
+
+  function render() {
+    const i = order[index], item = QUESTIONS[i];
+    els.counter.textContent = `Question ${index+1} of ${order.length}`;
+    els.question.textContent = item.q;
+    els.options.innerHTML = '';
+    els.feedback.textContent = '';
+    els.next.disabled = true; locked = false;
+
+    item.options.forEach((opt, optIndex) => {
+      const b = document.createElement('button');
+      b.className = 'btn'; b.textContent = opt;
+      b.onclick = () => choose(optIndex, b, item.answerIndex);
+      els.options.appendChild(b);
+    });
+  }
+
+  function choose(chosen, buttonEl, correctIndex) {
+    if (locked) return; locked = true;
+    [...els.options.children].forEach(b => b.disabled = true);
+    if (chosen === correctIndex) {
+      buttonEl.classList.add('correct'); score++;
+      els.feedback.textContent = "Correct.";
+    } else {
+      buttonEl.classList.add('wrong');
+      els.feedback.textContent = `Incorrect. Correct answer: ${QUESTIONS[order[index]].options[correctIndex]}`;
+      els.options.children[correctIndex].classList.add('correct');
+    }
+    els.next.disabled = false;
+  }
+
+  function showEnd() {
+    els.quiz.classList.add('hidden');
+    els.end.classList.remove('hidden');
+    els.final.textContent = `You scored ${score} out of ${order.length}.`;
+  }
+
+  function shuffle(arr) {
+    for (let i=arr.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
+
+  // ====== Animation Helpers ======
+  function animateOut(callback) {
+    els.quiz.classList.add('fade-out');
+    setTimeout(() => {
+      callback();
+      els.quiz.classList.remove('fade-out');
+    }, 600); // matches CSS transition
+  }
+
+  function animateIn() {
+    els.quiz.classList.add('fade-in');
+    setTimeout(() => {
+      els.quiz.classList.remove('fade-in');
+    }, 600);
+  }
+</script>
+</body>
+</html>
